@@ -168,7 +168,7 @@ $scope.cost = 2;
 <h3>
 <a id="service" class="anchor" href="#service" aria-hidden="true"><span class="octicon octicon-link"></span></a>Service</h3>
 
-<p>我們已經使用過了 Angular 內建的 $scope 和 $http service 了，現在來了解一下 service 大概的特性與用途。</p>
+<p>我們已經使用過了 Angular 內建的 $scope 和 $http service 了，現在來了解一下 service 的特性與用途。</p>
 
 <p>service 的宣告方式如下：</p>
 
@@ -200,7 +200,7 @@ $scope.cost = 2;
 
 <p>或者包裝複雜的邏輯，例如之前的 AJAX 取資料範例可以改成 service</p>
 
-<pre><code>app.factory("myAjaxService", ['$http', 'q', function($http, $q){
+<pre><code>app.factory("myAjaxService", ['$http', '$q', function($http, $q){
     return {
         get: function(){
             return $q(function(resolve, reject){
@@ -225,6 +225,548 @@ app.controller("myController", ['$scope', 'myAjaxService', function($scope, myAj
     $scope.cost = myAjaxService.get();
 }])
 </code></pre>
+
+<h3>
+<a id="scope" class="anchor" href="#scope" aria-hidden="true"><span class="octicon octicon-link"></span></a>Scope</h3>
+
+<p>除了 Scope 與 Template 間的 two-way binding 之外，還有一些 Scope 的特性與其他常用的 API 我們也必需要知道。</p>
+
+<h4>
+<a id="繼承性" class="anchor" href="#%E7%B9%BC%E6%89%BF%E6%80%A7" aria-hidden="true"><span class="octicon octicon-link"></span></a>繼承性</h4>
+
+<p>Scope 之間是有繼承關係的，每個 Angular App 都有一個叫做 rootScope 的特殊 Scope，代表的就是最底層的 Scope，而每次我們使用 ng-controller 時，Angular 就會為我們在該 node 上建立一個繼承自當前 Scope 的新 Scope，請參考以下範例。</p>
+
+<pre><code>angular.module('scopeExample', [])
+.controller('FirstController', ['$scope', '$rootScope', function($scope, $rootScope) {
+    $rootScope.greet = 'Hello';
+    $scope.name = 'Nick';
+}])
+.controller('SecondController', ['$scope', function($scope) {
+    $scope.name = 'John';
+}]);
+
+&lt;div ng-app="scopeExample" class="scope-demo"&gt;
+    &lt;div ng-controller="FirstController"&gt;
+        {{greet}} {{name}}!
+
+        &lt;div ng-controller="SecondController"&gt;
+            {{greet}} {{name}}!
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+
+<p>(<a href="https://jsfiddle.net/fx9h2e5b/">Fiddle</a>)執行後可以看到結果為</p>
+
+<pre><code>Hello Nick!
+Hello John!
+</code></pre>
+
+<p>如前述，所有 Scope 都是源自於 rootScope，所以如果我們想要設定一個所有 Scope 都要有的屬性，就可以用 $rootScope 這個 service 把 rootScope inject 進來，在 rootScope 上加上 greet 的屬性值後 FirstController 和 SecondController 內就可以存取到 greet 了。</p>
+
+<p>接下來我們在兩個 Controller 的 Scope 上都設定 name 這個屬性，從執行結果我們也可以得知，繼承自上層 Scope 的值是可以被 overwrite 掉的。</p>
+
+<p>如果想在 SecondController 內存上層的 Scope 內容，可以透過 $scope.$parent 存取，如下例。</p>
+
+<pre><code>.controller('SecondController', ['$scope', function($scope) {
+    $scope.name = 'John';
+}]);
+
+&lt;div ng-controller="SecondController"&gt;
+    {{greet}} {{name}}! (From {{$parent.name}})
+&lt;/div&gt;
+</code></pre>
+
+<p>可以得到結果</p>
+
+<pre><code>Hello John! (From Nick)
+</code></pre>
+
+<h4>
+<a id="事件傳遞" class="anchor" href="#%E4%BA%8B%E4%BB%B6%E5%82%B3%E9%81%9E" aria-hidden="true"><span class="octicon octicon-link"></span></a>事件傳遞</h4>
+
+<p>scope 間的事件可以透過向下層傳遞的 $broadcast，或是向上傳遞的 $emit 來達到訊息的溝通，這也是 Controller 間常用的溝通方式。</p>
+
+<pre><code>angular.module('scopeExample', [])
+.controller('FirstController', ['$scope', '$rootScope', function($scope, $rootScope) {
+    $scope.$on("clicked", function(e, data){
+        $scope.status = data;
+        $scope.$broadcast("info", "acknowledge")
+    })
+}])
+.controller('SecondController', ['$scope', function($scope) {
+    $scope.click = function(){
+        $scope.$emit("clicked", "I'm clicked.")
+    }
+
+    $scope.$on("info", function(e, data){
+        $scope.info = data;
+    })
+}]);
+
+&lt;div ng-app="scopeExample" class="scope-demo"&gt;
+    &lt;div ng-controller="FirstController"&gt;
+        Message From SecondController: {{status}}
+
+        &lt;div ng-controller="SecondController"&gt;
+            Message From FirstController: {{info}}
+            &lt;div&gt;&lt;button ng-click="click()"&gt;Click Me&lt;/button&gt;&lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+
+<p>(<a href="https://jsfiddle.net/d12exLcy/1/">Fiddle</a>)執行並點選 button 後可以看到</p>
+
+<pre><code>Message From SecondController: I'm clicked.
+Message From FirstController: acknowledge
+</code></pre>
+
+<p>這個範例裡我們順便用到了 ng-click 這個 Directive, 基本上看名字就知道這個是監聽 click 的事件，和原本的 Javascript 的 event 差不多，只是 context 變成 scope 而已。</p>
+
+<p>我們在 click function 內使用 $scope.$emit("eventName", yourData) 來向 FirstController 傳遞事件，而在 FirstController 內必須要用 $scope.$on("eventName", function(event, yourData){ ... }) 來接收事件。</p>
+
+<p>接收事件的 function 第一個參數為 event object，當頁面上同時有使用 jQuery 時就是會若無則會 jQuery 的 event object，若無則會是 jqLite 的 event Object，所以也有 stopPropagation 可以用。</p>
+
+<p>第二個參數是收到的 data，任意資料型態都可以，就再不多作說明。</p>
+
+<h4>
+<a id="watch-watchgroup-watchcollection" class="anchor" href="#watch-watchgroup-watchcollection" aria-hidden="true"><span class="octicon octicon-link"></span></a>$watch, $watchGroup, $watchCollection</h4>
+
+<p>$watch 也是 scope 裡常用的 API，使用方法如下例</p>
+
+<pre><code>angular.module('scopeExample', [])
+.controller('FirstController', ['$scope', '$rootScope', function($scope, $rootScope) {
+    $scope.value = 0;
+
+    $scope.$watch("value", function(newVal, oldVal){
+        if (newVal &gt; 3){
+            $scope.value = 0;
+        }
+    })
+
+    $scope.$on("addValue", function(e, data){
+        $scope.value++;
+    })
+}])
+.controller('SecondController', ['$scope', function($scope) {
+    $scope.add = function(){
+        $scope.$emit("addValue");
+    }
+}]);
+
+&lt;div ng-app="scopeExample" class="scope-demo"&gt;
+    &lt;div ng-controller="FirstController"&gt;
+        Value: {{value}}
+
+        &lt;div ng-controller="SecondController"&gt;
+            &lt;div&gt;&lt;button ng-click="add()"&gt;add&lt;/button&gt;&lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+
+<p>(<a href="https://jsfiddle.net/sd9fy7x1/">Fiddle</a>) 執行後可以看到 value 加到三之後會重新歸零。</p>
+
+<p>所以 $watch 就是監測 scope 屬性值的變動，可以想成是 scope 的 change 事件，$watch 的第一個參數是要監視的 scope 屬性名稱，在這裡要監視的就是 scope.value，所以使用</p>
+
+<pre><code>$scope.$watch("value", function(newValue, oldValue){ ... })
+</code></pre>
+
+<p>而第二個參數就是處理變動的 function，function 收到的第一個參數是變動後新的值，第二個就是變動前的值，本例就是判斷新值大於3時將 value 改回1而已。</p>
+
+<pre><code>$scope.$watch("value", function(newVal, oldVal){
+    if (newVal &gt; 3){
+        $scope.value = 0;
+    }
+})
+</code></pre>
+
+<p>這樣大家應該可以對 $watch 有基本的認識，另外一個 $watchGroup 只是一次可以監視多個屬性值，function 收到的 newValue 和 oldValue 都變成 array 而已。</p>
+
+<p>(<a href="https://jsfiddle.net/rtwjs2f7/">Fiddle</a>)</p>
+
+<pre><code>angular.module('scopeExample', [])
+.controller('FirstController', ['$scope', '$rootScope', function($scope, $rootScope) {
+    $scope.value = 0;
+    $scope.value2 = 0;
+
+    $scope.$watchGroup(["value", "value2"], function(newVals, oldVals){
+        if (newVals[0] &gt; 3){
+            $scope.value = 0;
+        }
+    })
+
+    $scope.$on("addValue", function(e, data){
+        $scope.value++;
+    })
+}])
+.controller('SecondController', ['$scope', function($scope) {
+    $scope.add = function(){
+        $scope.$emit("addValue");
+    }
+}]);
+
+&lt;div ng-app="scopeExample" class="scope-demo"&gt;
+    &lt;div ng-controller="FirstController"&gt;
+        Value: {{value}}
+
+        &lt;div ng-controller="SecondController"&gt;
+            &lt;div&gt;&lt;button ng-click="add()"&gt;add&lt;/button&gt;&lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+
+<p>如果要監視的屬性值是個 Object 或是 array，那最後一個 $watchCollection 就可以派上用場了。</p>
+
+<p>(<a href="https://jsfiddle.net/jo6gryjb/">Fiddle</a>)</p>
+
+<pre><code>angular.module('scopeExample', [])
+.controller('FirstController', ['$scope', '$rootScope', function($scope, $rootScope) {
+    $scope.items = [];
+
+    $scope.$watchCollection("items", function(newVal, oldVal){
+        if (newVal.length &gt; 3){
+            $scope.items = [];
+        }
+    })
+
+    $scope.$on("addItem", function(e, data){
+        $scope.items.push({});
+    })
+}])
+.controller('SecondController', ['$scope', function($scope) {
+    $scope.add = function(){
+        $scope.$emit("addItem");
+    }
+}]);
+
+&lt;div ng-app="scopeExample" class="scope-demo"&gt;
+    &lt;div ng-controller="FirstController"&gt;
+        items length: {{items.length}}
+
+        &lt;div ng-controller="SecondController"&gt;
+            &lt;div&gt;&lt;button ng-click="add()"&gt;add&lt;/button&gt;&lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+
+<p>$watch 這個 API 在把 jQuery 元件包裝成 Directive 可以說是必定會用到的功能，在這個狀況下也一定會同時用到 $apply，這算是比較進階的課題，就留給大家自行研究了，$scope 相關 API 可以至 <a href="https://docs.angularjs.org/api/ng/type/%24rootScope.Scope">$scope</a> 查詢。</p>
+
+<h3>
+<a id="directive" class="anchor" href="#directive" aria-hidden="true"><span class="octicon octicon-link"></span></a>Directive</h3>
+
+<p>最後一個議題就是我們一直說到的 Directive，我們先前已經用過一些 ng-xxx 等內建的 Directive，這些 Directie 大多著重在資料面，而沒有 Template 的部分，一般來說大部分的 Directive 都會同時包裝 Template 與 scope 而成為一個獨立的元件來使用，以下提供一個簡單的例子。</p>
+
+<pre><code>angular.module('directiveExample', [])
+.controller('gridController', ['$scope', function($scope) {
+    $scope.add = function(){
+        $scope.gridData.push({});
+    }
+
+    $scope.save = function(){
+        if (!angular.isUndefined($scope.gridSave)){
+            $scope.gridSave($scope.gridData);
+        }
+    }
+}])
+.directive('myGrid', [function() {
+    return {
+        restrict: 'A',
+        scope: {
+            gridData: "=",
+            gridSave: "=?myGridSave"
+        },
+        controller: "gridController",
+        template: 
+            '&lt;table class="table table-striped"&gt;' +
+            '   &lt;thead&gt;' +
+            '       &lt;tr&gt;' +
+            '           &lt;td colspan="2"&gt;' +
+            '               &lt;button class="btn btn-info" ng-click="add()"&gt;add&lt;/td&gt;' +
+            '               &lt;button class="btn btn-primary" ng-click="save()"&gt;save&lt;/td&gt;' +
+            '           &lt;/td&gt;' +
+            '       &lt;/tr&gt;' +
+            '   &lt;/thead&gt;' +
+            '   &lt;tbody&gt;' +
+            '       &lt;tr ng-repeat="row in gridData"&gt;' +
+            '           &lt;td&gt;&lt;input type="text" ng-model="row.id"/&gt;&lt;/td&gt;' +
+            '           &lt;td&gt;&lt;input type="text" ng-model="row.desc"/&gt;&lt;/td&gt;' +
+            '       &lt;/tr&gt;' +
+            '   &lt;/tbody&gt;' +
+            '&lt;/table&gt;',
+        link: function(scope, el, attrs){
+            el.addClass("my-grid-pane");
+        }
+    }
+}])
+.controller('myController', ['$scope', '$window', function($scope, $window) {
+    $scope.data = [{id: 1, desc: "todo 1"}, {id: 2, desc: "todo 2"}];
+
+    $scope.save = function(data){
+        $window.alert(JSON.stringify(data));
+    }
+}])
+
+&lt;div ng-app="directiveExample" class="scope-demo"&gt;
+    &lt;div ng-controller="myController"&gt;
+        &lt;div class="grid-pane" my-grid grid-data="data" my-grid-save="save"&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+
+<p>(<a href="https://jsfiddle.net/tc1q76sr/">Fiddle</a>)</p>
+
+<p>這是個可以編輯的 grid 元件，寫一個可編輯的 grid 一直不是件簡單的事，但是用 angular 實作就是那麼簡單，扣掉 Template 的部分不到 30 行程式碼就完成了。</p>
+
+<p>宣告 Directive 的方式也跟 Controller 差不多，只是改用 app.directive，也可以 inject 額外的 service 進來，$parse 和 $compile 這兩個 service 都算是有機會用到，有興趣的人可以自行查看，
+directive 的 function 原則上是回傳一個定義 directive 的 object，因為 directive 的屬性太多且有些部分比較複雜，後面只會解釋有用到的屬性，待各位對 Angular 有足夠熟悉後再去研究就可以了，在 <a href="https://docs.angularjs.org/api/ng/service/%24compile">這裡</a> 可以查到完整的資訊。</p>
+
+<p>首先看到了我宣告了一個叫 myGrid 的 directive，這裡要注意名稱大小寫和實際要使用時會有點不同，在 template 上引用這個元件時要用 my-grid。</p>
+
+<pre><code>.directive('myGrid', [function() { ...} ])
+
+&lt;div class="grid-pane" my-grid grid-data="data" my-grid-save="save"&gt;&lt;/div&gt;
+</code></pre>
+
+<p>這是因為在 html 上 tag name 和 attribute 是都是視為小寫的，所以在 template 上使用時大小的字要改成小寫並在前面加上 - 號，Angular 內部會自己轉換成正確的 directive 名稱。</p>
+
+<p>接下來就開始設定屬性，我們先接紹完用到的屬性後再開始解釋程式碼：</p>
+
+<h4>
+<a id="restrict" class="anchor" href="#restrict" aria-hidden="true"><span class="octicon octicon-link"></span></a>restrict</h4>
+
+<p>決定引用 directive 的方式，可以用 tag name (E) 也可以用 attribute (A)，其他還有 class name 和 comment，但一般不太會用到，預設值是 E，附上官網說明應該就很清楚了。</p>
+
+<pre><code>E - Element name (default): &lt;my-directive&gt;&lt;/my-directive&gt;
+A - Attribute (default): &lt;div my-directive="exp"&gt;&lt;/div&gt;
+C - Class: &lt;div class="my-directive: exp;"&gt;&lt;/div&gt;
+M - Comment: &lt;!-- directive: my-directive exp --&gt;
+</code></pre>
+
+<h4>
+<a id="scope-1" class="anchor" href="#scope-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>scope</h4>
+
+<p>scope 比較複雜，directive 的 scope 值可以定義成三種型態</p>
+
+<ul>
+<li>false 表示不建立新的 scope，直接使用當前的 scope。</li>
+<li>true 建立一個繼承至當前 scope 的新 scope。</li>
+<li>{} Object 如果給的是一個 object，會建立一個不繼承任何 scope 的 isolate scope</li>
+</ul>
+
+<p>前兩個都很單純，應該就不用再解釋，而 isolate scope 有幾個特殊的符號要熟記，這裡也用官網的例子。</p>
+
+<h5>
+<a id="-or-attr-or-attr" class="anchor" href="#-or-attr-or-attr" aria-hidden="true"><span class="octicon octicon-link"></span></a>@ or <a href="https://github.com/attr" class="user-mention">@attr</a> or @?attr</h5>
+
+<p>表示 scope 上的屬性值要 bind 到指定的 dom 上的 attribute 值，如</p>
+
+<pre><code>&lt;widget my-attr="hello {{name}}"&gt;
+
+scope: { localName:'@myAttr' }
+</code></pre>
+
+<p>當前 name 的值是 Nick，那麼 directive 裡面的 scope.localName 就會是 hello Nick，name 改變時 localName 也會自動改變，如果 dom 上 attribute 的名稱和 scope 的名稱相同，就可以用偷懶的寫法，dom attribute 的名稱可以省略。</p>
+
+<pre><code>&lt;widget local-name="hello {{name}}"&gt;
+
+scope: { localName:'@' }
+</code></pre>
+
+<p>另外也要注意 dom 上的 attribute 名稱和 scope attribute 大小寫之間的關係是和 directive 名稱的特性是一樣的，取不到值時先檢查 dom 是不是上忘記把大寫改成 -小寫 可以省下你不少時間。</p>
+
+<p>加上 ? 表示這個屬性是 optional。</p>
+
+<h5>
+<a id="-or-attr-or-attr-1" class="anchor" href="#-or-attr-or-attr-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>= or =attr or @?attr</h5>
+
+<p>bi-direction binding，也就是在 directive 內或外改變這個值都會同時更改另一方。</p>
+
+<pre><code>&lt;widget my-attr="parentModel"&gt;
+
+scope: { localModel:'=myAttr' }
+</code></pre>
+
+<p>這裡要注意 dom 上不是用 expressions {{}}，而是直接用屬性名稱就好。</p>
+
+<h5>
+<a id="-or-attr-or-attr-2" class="anchor" href="#-or-attr-or-attr-2" aria-hidden="true"><span class="octicon octicon-link"></span></a>&amp; or &amp;attr or &amp;?attr</h5>
+
+<p>定義方式差不多。</p>
+
+<pre><code>&lt;widget my-attr="count = count + value"&gt;
+
+scope: { localFn:'&amp;myAttr' }
+</code></pre>
+
+<p>看官網範例應該就能了解用法。</p>
+
+<pre><code>provides a way to execute an expression in the context of the parent scope
+
+if the expression is increment(amount)
+
+then we can specify the amount value by calling the localFn as localFn({amount: 22})
+</code></pre>
+
+<h4>
+<a id="controller-1" class="anchor" href="#controller-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>controller</h4>
+
+<p>coontroller名稱，不一定要另外宣告 Controller，也可以直接寫在 link 裡就好，看個人習慣與是否有用到 require 這個屬性，被 required 的 directive 基本上 Controller 都需要另外拉出來。 </p>
+
+<h4>
+<a id="template" class="anchor" href="#template" aria-hidden="true"><span class="octicon octicon-link"></span></a>template</h4>
+
+<p>如果是用字串直接內嵌的 html 就用 template，如果 html 是在另外一個 xxx.html 檔案就要改用 templateUrl，或者有用 grunt module html2js 的話也是用 templateUrl。</p>
+
+<h4>
+<a id="link" class="anchor" href="#link" aria-hidden="true"><span class="octicon octicon-link"></span></a>link</h4>
+
+<p>link 是 scope 已經 bind 到 template 後會被執行的 function，在這裡才可以開始做 dom 的操作或事件動作，例如一個可以拖拉改變位置的元件就會在這裡寫mousedown mousemove mouseup時改變位置的邏輯。
+function 接收5個值，常用的是前面三個。</p>
+
+<pre><code>function link(scope, el, attrs, controller, transcludeFn) { ... }
+</code></pre>
+
+<p>scope 就是 directive 的 scope</p>
+
+<p>el 就是 directive 本身最上層的 dom</p>
+
+<p>attrs 就是 el 上所有的 attributes，Angular 幫我們變成一個 object 方便存取，所以也可以透過 attrs 手動作額外的 binding。</p>
+
+<p>另外兩個算進階用法，請自行到官網查詢。</p>
+
+<p>以上解釋完用到屬性，接著要繼續解釋我們的 myGrid 。</p>
+
+<pre><code>restrict: 'A'
+</code></pre>
+
+<p>設定成只能用attribute 的方式引用</p>
+
+<pre><code>scope: {
+    gridData: "=",
+    gridSave: "=?myGridSave"
+}
+</code></pre>
+
+<p>scope 使用 isolate scope，兩個屬性都是 bi-direction binding，gridData 是資料來源，在要引用 myGrid 的 node 上必須同時設定這個屬性，不然會丟出 error，我們要把 myController scope 上的 data binding 到 myGrid 上，所以也要設定好測試的用的 data。</p>
+
+<pre><code>&lt;div class="grid-pane" my-grid grid-data="data"&gt;&lt;/div&gt;
+
+.controller('myController', ['$scope', function($scope) {
+    $scope.data = [{id: 1, desc: "todo 1"}, {id: 2, desc: "todo 2"}];
+}]
+</code></pre>
+
+<p>再來準備 bind 第二個屬性 gridSave，這個是 optional 的屬性，沒有設定也不會出現 eroor，先將這個屬性加上。</p>
+
+<pre><code>&lt;div class="grid-pane" my-grid grid-data="data" my-grid-save="save"&gt;&lt;/div&gt;
+
+.controller('myController', ['$scope', '$window', function($scope, $window) {
+    $scope.data = [{id: 1, desc: "todo 1"}, {id: 2, desc: "todo 2"}];
+
+    $scope.save = function(data){
+        $window.alert(JSON.stringify(data));
+    }
+}])
+</code></pre>
+
+<p>然後設定 controller 使用 gridController</p>
+
+<pre><code>controller: "gridController"
+
+.controller('gridController', ['$scope', function($scope) {
+    $scope.add = function(){
+        $scope.gridData.push({});
+    }
+
+    $scope.save = function(){
+        if (!angular.isUndefined($scope.gridSave)){
+            $scope.gridSave($scope.gridData);
+        }
+    }
+}])
+</code></pre>
+
+<p>以及 template</p>
+
+<pre><code>template: 
+    '&lt;table class="table table-striped"&gt;' +
+    '   &lt;thead&gt;' +
+    '       &lt;tr&gt;' +
+    '           &lt;td colspan="2"&gt;' +
+    '               &lt;button class="btn btn-info" ng-click="add()"&gt;add&lt;/td&gt;' +
+    '               &lt;button class="btn btn-primary" ng-click="save()"&gt;save&lt;/td&gt;' +
+    '           &lt;/td&gt;' +
+    '       &lt;/tr&gt;' +
+    '   &lt;/thead&gt;' +
+    '   &lt;tbody&gt;' +
+    '       &lt;tr ng-repeat="row in gridData"&gt;' +
+    '           &lt;td&gt;&lt;input type="text" ng-model="row.id"/&gt;&lt;/td&gt;' +
+    '           &lt;td&gt;&lt;input type="text" ng-model="row.desc"/&gt;&lt;/td&gt;' +
+    '       &lt;/tr&gt;' +
+    '   &lt;/tbody&gt;' +
+    '&lt;/table&gt;'
+</code></pre>
+
+<p>先看到 tbody 中有一個 ng-repeat，ng-repeat 會依序取出 collection 中的 item，並複製一個 ng-repeat 所在的 dom，然後建立一個新的 scope bind 上去，並把 item 加到 scope 上，在這個 dom 上就可以存取到 item 的值，當然我們把 item 的名稱取名叫 row，存取時就要用 row.id、row.desc。</p>
+
+<pre><code>'&lt;tr ng-repeat="row in gridData"&gt;' +
+'    &lt;td&gt;&lt;input type="text" ng-model="row.id"/&gt;&lt;/td&gt;' +
+'    &lt;td&gt;&lt;input type="text" ng-model="row.desc"/&gt;&lt;/td&gt;' +
+'&lt;/tr&gt;'
+</code></pre>
+
+<p>template 中另外看到有兩個 button，add 按了之後要新增一筆空資料，save 按了應該要呼叫 binding 到 gridSave 上的外層 scope 屬性，所以我們在 gridController 中要處理這段邏輯。</p>
+
+<pre><code>'&lt;button class="btn btn-info" ng-click="add()"&gt;add&lt;/td&gt;'
+
+$scope.add = function(){
+    $scope.gridData.push({});
+}
+</code></pre>
+
+<p>基本上 add 事件就對 gridData push 一個 object 就可以了。</p>
+
+<pre><code>'&lt;button class="btn btn-primary" ng-click="save()"&gt;save&lt;/td&gt;'
+
+$scope.save = function(){
+    if (!angular.isUndefined($scope.gridSave)){
+        $scope.gridSave($scope.gridData);
+    }
+}
+</code></pre>
+
+<p>save 事件我們想要把當前的資料丟回給 binding 到 gridSave 上的外部 scope function， 但這個屬性是 optional，所以要先判斷是不是 undefined 才可以呼叫，實際上 gridData 是 bi-direction binding，所以呼叫 gridSave 時是可以不用給 $scope.gridData 這個參數的，因為外層 scope 上的 data 也會一起變動，不用特別處理也可以取得當前 grid 的值，這裡只是讓大家知道 可以binding function 進來也可以正常給參數的。</p>
+
+<p>外部的 scope 上定義的 function 收到呼叫後跳出 alert 顯示出資料內容。</p>
+
+<pre><code>$scope.save = function(data){
+    $window.alert(JSON.stringify(data));
+}
+</code></pre>
+
+<p>注意到我們 inject 了 $window service ，Angular 中若要使用 javascript 的原生 API 都會使用 $window 這個 service，例如 alert、setTimeout、setInterval，這在寫 unit 的時候比較容易做 mock，除此之外 setTimeout 之中若有改變 scope 的屬性值而沒有使用 $window.setTimeout，你會發現畫面上的欄位沒有跟著變動，因為不在 Angular digest cycle 中做的數值修改是不會被偵測到的，包含先前介紹過的 $watch
+也會沒有反應，不然就是修改值後要再加上 $scope.$apply() 通知 Angular 有變動發生。</p>
+
+<p>詳細可以參照官網 <a href="https://docs.angularjs.org/guide/scope">此頁</a> 最下面的 Integration with the browser event loop 章節內有說明。</p>
+
+<p>最後是</p>
+
+<pre><code>link: function(scope, el, attrs){
+    el.addClass("my-grid-pane");
+}
+</code></pre>
+
+<p>這裡其實沒什麼必要加，因為我們沒有要操作 dom，僅增加一個 class 示意。</p>
+
+<h3>
+<a id="結語" class="anchor" href="#%E7%B5%90%E8%AA%9E" aria-hidden="true"><span class="octicon octicon-link"></span></a>結語</h3>
+
+<p>Angular 的邏輯和 jQuery 或其他 framework 相差甚多，尤其熟悉 jQuery 的人可能腦筋會常常轉不過來而不知道同樣的功能要怎麼用 Directive 實作，而 Directive 可以說是 Angular 的精華所在，建議大家可以多看看 github 上的各種優秀 directive 才能更加地熟悉精進，例如 Angular 版的 <a href="https://github.com/angular-ui/bootstrap">bootstrap</a> 就有各種元件的實作，大部分的 Directive 都是 100 ~ 200 行而已，相信閱讀也不會太困難。</p>
 
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/nickhsieh/angular-tutorial">Angular-tutorial</a> is maintained by <a href="https://github.com/nickhsieh">nickhsieh</a>.</span>
