@@ -396,7 +396,7 @@ $watch 也是 scope 裡常用的 API，使用方法如下例
 $watch 這個 API 在把 jQuery 元件包裝成 Directive 可以說是必定會用到的功能，在這個狀況下也一定會同時用到 $apply，這算是比較進階的課題，就留給大家自行研究了，$scope 相關 API 可以至 [$scope](https://docs.angularjs.org/api/ng/type/$rootScope.Scope) 查詢。
 
 ### Directive
-最後一個議題就是我們一直說到的 Directive，Directive 可以說是 Angular 的核心，需要多一點時間才能活用，建議大家可以多看看 github 上的各種優秀 directive 才能更精進，而我們先前已經用過一些 ng-xxx 等內建的 Directive，這些 Directie 大多著重在資料面，而沒有 Template 的部分，一般來說大部分的 Directive 都會同時包裝 Template 與 scope 而成為一個獨立的元件來使用，以下提供一個簡單的例子。
+最後一個議題就是我們一直說到的 Directive，我們先前已經用過一些 ng-xxx 等內建的 Directive，這些 Directie 大多著重在資料面，而沒有 Template 的部分，一般來說大部分的 Directive 都會同時包裝 Template 與 scope 而成為一個獨立的元件來使用，以下提供一個簡單的例子。
 
     angular.module('directiveExample', [])
     .controller('gridController', ['$scope', function($scope) {
@@ -473,7 +473,7 @@ directive 的 function 原則上是回傳一個定義 directive 的 object，因
 接下來就開始設定屬性，我們先接紹完用到的屬性後再開始解釋程式碼：
 
 #### restrict
-決定引用 directive 的方式，可以用 tag name (E) 也可以用 attribute (A)，我們這裡選擇的是用 attribute，所以設定成Ａ，其他還有 class name 和 comment，但一般不太會用到，預設值是 E，附上官網說明應該就很清楚了。
+決定引用 directive 的方式，可以用 tag name (E) 也可以用 attribute (A)，其他還有 class name 和 comment，但一般不太會用到，預設值是 E，附上官網說明應該就很清楚了。
 
     E - Element name (default): <my-directive></my-directive>
     A - Attribute (default): <div my-directive="exp"></div>
@@ -550,4 +550,118 @@ attrs 就是 el 上所有的 attributes，Angular 幫我們變成一個 object �
 
 另外兩個算進階用法，請自行到官網查詢。
 
-以上解釋完用到屬性，接著要開始解釋我們的 myGrid 了。
+以上解釋完用到屬性，接著要繼續解釋我們的 myGrid 。
+
+    restrict: 'A'
+
+設定成只能用attribute 的方式引用
+
+    scope: {
+        gridData: "=",
+        gridSave: "=?myGridSave"
+    }
+
+scope 使用 isolate scope，兩個屬性都是 bi-direction binding，gridData 是資料來源，在要引用 myGrid 的 node 上必須同時設定這個屬性，不然會丟出 error，我們要把 myController scope 上的 data binding 到 myGrid 上，所以也要設定好測試的用的 data。
+
+    <div class="grid-pane" my-grid grid-data="data"></div>
+
+    .controller('myController', ['$scope', function($scope) {
+        $scope.data = [{id: 1, desc: "todo 1"}, {id: 2, desc: "todo 2"}];
+    }]
+
+再來準備 bind 第二個屬性 gridSave，這個是 optional 的屬性，沒有設定也不會出現 eroor，先將這個屬性加上。
+
+    <div class="grid-pane" my-grid grid-data="data" my-grid-save="save"></div>
+
+    .controller('myController', ['$scope', '$window', function($scope, $window) {
+        $scope.data = [{id: 1, desc: "todo 1"}, {id: 2, desc: "todo 2"}];
+
+        $scope.save = function(data){
+            $window.alert(JSON.stringify(data));
+        }
+    }])
+
+然後設定 controller 使用 gridController
+
+    controller: "gridController"
+
+    .controller('gridController', ['$scope', function($scope) {
+        $scope.add = function(){
+            $scope.gridData.push({});
+        }
+
+        $scope.save = function(){
+            if (!angular.isUndefined($scope.gridSave)){
+                $scope.gridSave($scope.gridData);
+            }
+        }
+    }])
+
+以及 template
+
+    template: 
+        '<table class="table table-striped">' +
+        '   <thead>' +
+        '       <tr>' +
+        '           <td colspan="2">' +
+        '               <button class="btn btn-info" ng-click="add()">add</td>' +
+        '               <button class="btn btn-primary" ng-click="save()">save</td>' +
+        '           </td>' +
+        '       </tr>' +
+        '   </thead>' +
+        '   <tbody>' +
+        '       <tr ng-repeat="row in gridData">' +
+        '           <td><input type="text" ng-model="row.id"/></td>' +
+        '           <td><input type="text" ng-model="row.desc"/></td>' +
+        '       </tr>' +
+        '   </tbody>' +
+        '</table>'
+
+先看到 tbody 中有一個 ng-repeat，ng-repeat 會依序取出 collection 中的 item，並複製一個 ng-repeat 所在的 dom，然後建立一個新的 scope bind 上去，並把 item 加到 scope 上，在這個 dom 上就可以存取到 item 的值，當然我們把 item 的名稱取名叫 row，存取時就要用 row.id、row.desc。
+
+    '<tr ng-repeat="row in gridData">' +
+    '    <td><input type="text" ng-model="row.id"/></td>' +
+    '    <td><input type="text" ng-model="row.desc"/></td>' +
+    '</tr>'
+
+template 中另外看到有兩個 button，add 按了之後要新增一筆空資料，save 按了應該要呼叫 binding 到 gridSave 上的外層 scope 屬性，所以我們在 gridController 中要處理這段邏輯。
+
+    '<button class="btn btn-info" ng-click="add()">add</td>'
+
+    $scope.add = function(){
+        $scope.gridData.push({});
+    }
+
+基本上 add 事件就對 gridData push 一個 object 就可以了。
+
+    '<button class="btn btn-primary" ng-click="save()">save</td>'
+
+    $scope.save = function(){
+        if (!angular.isUndefined($scope.gridSave)){
+            $scope.gridSave($scope.gridData);
+        }
+    }
+
+save 事件我們想要把當前的資料丟回給 binding 到 gridSave 上的外部 scope function， 但這個屬性是 optional，所以要先判斷是不是 undefined 才可以呼叫，實際上 gridData 是 bi-direction binding，所以呼叫 gridSave 時是可以不用給 $scope.gridData 這個參數的，因為外層 scope 上的 data 也會一起變動，不用特別處理也可以取得當前 grid 的值，這裡只是讓大家知道 可以binding function 進來也可以正常給參數的。
+
+外部的 scope 上定義的 function 收到呼叫後跳出 alert 顯示出資料內容。
+
+    $scope.save = function(data){
+        $window.alert(JSON.stringify(data));
+    }
+
+注意到我們 inject 了 $window service ，Angular 中若要使用 javascript 的原生 API 都會使用 $window 這個 service，例如 alert、setTimeout、setInterval，這在寫 unit 的時候比較容易做 mock，除此之外 setTimeout 之中若有改變 scope 的屬性值而沒有使用 $window.setTimeout，你會發現畫面上的欄位沒有跟著變動，因為不在 Angular digest cycle 中做的數值修改是不會被偵測到的，包含先前介紹過的 $watch
+也會沒有反應，不然就是修改值後要再加上 $scope.$apply() 通知 Angular 有變動發生。
+
+詳細可以參照官網 [此頁](https://docs.angularjs.org/guide/scope) 最下面的 Integration with the browser event loop 章節內有說明。
+
+最後是
+
+    link: function(scope, el, attrs){
+        el.addClass("my-grid-pane");
+    }
+
+這裡其實沒什麼必要加，因為我們沒有要操作 dom，僅增加一個 class 示意。
+
+### 結語
+Angular 的邏輯和 jQuery 或其他 framework 相差甚多，尤其熟悉 jQuery 的人可能腦筋會常常轉不過來而不知道同樣的功能要怎麼用 Directive 實作，而 Directive 可以說是 Angular 的精華所在，建議大家可以多看看 github 上的各種優秀 directive 才能更加地熟悉精進，例如 Angular 版的 [bootstrap](https://github.com/angular-ui/bootstrap) 就有各種元件的實作，大部分的 Directive 都是 100 ~ 200 行而已，相信閱讀也不會太困難。
