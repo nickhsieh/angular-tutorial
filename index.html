@@ -48,6 +48,8 @@
 &lt;/div&gt;
 </code></pre>
 
+<p>(<a href="https://jsfiddle.net/knu3h95z/">Fiddle</a>)</p>
+
 <p>這是一個基本的 Model 與 Template binding 的模式，Model 在 AngularJS 被稱為 Scope，往後的說明我們都會改用 Scope 代替 Model。
 裡面所看到的所有 ng-xxx 都是 AngularJS 內建的元件，又被稱為 Directive，Directive 的詳細介紹我們留到稍後再做說明，這裡僅介紹有用到的 Directive。</p>
 
@@ -107,6 +109,8 @@
 &lt;/div&gt;
 </code></pre>
 
+<p>(<a href="https://jsfiddle.net/d2f9r24m/">Fiddle</a>)</p>
+
 <p>雖然不一定要有 module 才能使用 controller，但為了方便往後程式擴展的維護，還是習慣都使用 module 比較好</p>
 
 <p>所以首先我們給 ng-app 一個 myApp 的值，表示內容交由 myApp 這個 Module 處理</p>
@@ -159,11 +163,13 @@ $scope.cost = 2;
 
 <pre><code> app.controller("myController", ['$scope', '$http', function($scope, $http){
      $scope.qty = 1;
-     $scope.cost = $http.get("urlPath");
+     $http.get("urlPath").then(function(result){
+        $scope.cost = result.data.price;
+     })
  }])
 </code></pre>
 
-<p>$http service 會回傳一個 $q 的物件，<a href="https://docs.angularjs.org/api/ng/service/%24q">$q</a> 是 Angular 內建的 <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise">Promise</a> service，當 AJAX 的結果回傳後 scope 會自動解析出 Promise 的值並一樣會自動 binding 到 template 上。</p>
+<p>$http service 會回傳一個 $q 的物件，<a href="https://docs.angularjs.org/api/ng/service/%24q">$q</a> 是 Angular 內建的 <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise">Promise</a> service，當 AJAX 的結果回傳後再用 then 解析出 Promise 的結果並設定到 $scope.cost 上。</p>
 
 <h3>
 <a id="service" class="anchor" href="#service" aria-hidden="true"><span class="octicon octicon-link"></span></a>Service</h3>
@@ -198,9 +204,10 @@ $scope.cost = 2;
 }])
 </code></pre>
 
-<p>或者包裝複雜的邏輯，例如之前的 AJAX 取資料範例可以改成 service</p>
+<p>或者包裝複雜的邏輯，例如之前的 AJAX 取資料範例可以改成 service，我們也同時試著把 service 放在別的 module 上測試 module dependency。</p>
 
-<pre><code>app.factory("myAjaxService", ['$http', '$q', function($http, $q){
+<pre><code>angular.module("myServiceModule", [])
+.factory("myAjaxService", ['$http', '$q', function($http, $q){
     return {
         get: function(){
             return $q(function(resolve, reject){
@@ -220,11 +227,32 @@ $scope.cost = 2;
     }
 }])
 
+var app = angular.module("myApp", ["myServiceModule"])
 app.controller("myController", ['$scope', 'myAjaxService', function($scope, myAjaxService){
     $scope.qty = 1;
-    $scope.cost = myAjaxService.get();
+    myAjaxService.get().then(function(val){
+        $scope.cost = val;
+    })
 }])
+
+&lt;div ng-app="myApp" ng-controller="myController"&gt;
+    &lt;b&gt;Invoice:&lt;/b&gt;
+
+    &lt;div&gt;
+        Quantity: &lt;input type="number" min="0" ng-model="qty"&gt;
+    &lt;/div&gt;
+
+    &lt;div&gt;
+        Costs: &lt;input type="number" min="0" ng-model="cost"&gt;
+    &lt;/div&gt;
+
+    &lt;div&gt;
+        &lt;b&gt;Total:&lt;/b&gt; {{qty * cost | currency}}
+    &lt;/div&gt;
+&lt;/div&gt;
 </code></pre>
+
+<p>(<a href="http://jsfiddle.net/Ln8j3jnc/1/">Fiddle</a>)</p>
 
 <h3>
 <a id="scope" class="anchor" href="#scope" aria-hidden="true"><span class="octicon octicon-link"></span></a>Scope</h3>
@@ -256,7 +284,9 @@ app.controller("myController", ['$scope', 'myAjaxService', function($scope, myAj
 &lt;/div&gt;
 </code></pre>
 
-<p>(<a href="https://jsfiddle.net/fx9h2e5b/">Fiddle</a>)執行後可以看到結果為</p>
+<p>(<a href="https://jsfiddle.net/fx9h2e5b/">Fiddle</a>)</p>
+
+<p>執行後可以看到結果為</p>
 
 <pre><code>Hello Nick!
 Hello John!
@@ -276,6 +306,8 @@ Hello John!
     {{greet}} {{name}}! (From {{$parent.name}})
 &lt;/div&gt;
 </code></pre>
+
+<p>(<a href="https://jsfiddle.net/fx9h2e5b/1/">Fiddle</a>)</p>
 
 <p>可以得到結果</p>
 
@@ -316,7 +348,9 @@ Hello John!
 &lt;/div&gt;
 </code></pre>
 
-<p>(<a href="https://jsfiddle.net/d12exLcy/1/">Fiddle</a>)執行並點選 button 後可以看到</p>
+<p>(<a href="https://jsfiddle.net/d12exLcy/1/">Fiddle</a>)</p>
+
+<p>執行並點選 button 後可以看到</p>
 
 <pre><code>Message From SecondController: I'm clicked.
 Message From FirstController: acknowledge
@@ -366,7 +400,9 @@ Message From FirstController: acknowledge
 &lt;/div&gt;
 </code></pre>
 
-<p>(<a href="https://jsfiddle.net/sd9fy7x1/">Fiddle</a>) 執行後可以看到 value 加到三之後會重新歸零。</p>
+<p>(<a href="https://jsfiddle.net/sd9fy7x1/">Fiddle</a>)</p>
+
+<p>執行後可以看到 value 加到三之後會重新歸零。</p>
 
 <p>所以 $watch 就是監測 scope 屬性值的變動，可以想成是 scope 的 change 事件，$watch 的第一個參數是要監視的 scope 屬性名稱，在這裡要監視的就是 scope.value，所以使用</p>
 
@@ -383,8 +419,6 @@ Message From FirstController: acknowledge
 </code></pre>
 
 <p>這樣大家應該可以對 $watch 有基本的認識，另外一個 $watchGroup 只是一次可以監視多個屬性值，function 收到的 newValue 和 oldValue 都變成 array 而已。</p>
-
-<p>(<a href="https://jsfiddle.net/rtwjs2f7/">Fiddle</a>)</p>
 
 <pre><code>angular.module('scopeExample', [])
 .controller('FirstController', ['$scope', '$rootScope', function($scope, $rootScope) {
@@ -418,9 +452,9 @@ Message From FirstController: acknowledge
 &lt;/div&gt;
 </code></pre>
 
-<p>如果要監視的屬性值是個 Object 或是 array，那最後一個 $watchCollection 就可以派上用場了。</p>
+<p>(<a href="https://jsfiddle.net/rtwjs2f7/">Fiddle</a>)</p>
 
-<p>(<a href="https://jsfiddle.net/jo6gryjb/">Fiddle</a>)</p>
+<p>如果要監視的屬性值是個 Object 或是 array，那最後一個 $watchCollection 就可以派上用場了。</p>
 
 <pre><code>angular.module('scopeExample', [])
 .controller('FirstController', ['$scope', '$rootScope', function($scope, $rootScope) {
@@ -453,6 +487,8 @@ Message From FirstController: acknowledge
 &lt;/div&gt;
 </code></pre>
 
+<p>(<a href="https://jsfiddle.net/jo6gryjb/">Fiddle</a>)</p>
+
 <p>$watch 這個 API 在把 jQuery 元件包裝成 Directive 可以說是必定會用到的功能，在這個狀況下也一定會同時用到 $apply，這算是比較進階的課題，就留給大家自行研究了，$scope 相關 API 可以至 <a href="https://docs.angularjs.org/api/ng/type/%24rootScope.Scope">$scope</a> 查詢。</p>
 
 <h3>
@@ -484,9 +520,9 @@ Message From FirstController: acknowledge
             '&lt;table class="table table-striped"&gt;' +
             '   &lt;thead&gt;' +
             '       &lt;tr&gt;' +
-            '           &lt;td colspan="2"&gt;' +
-            '               &lt;button class="btn btn-info" ng-click="add()"&gt;add&lt;/td&gt;' +
-            '               &lt;button class="btn btn-primary" ng-click="save()"&gt;save&lt;/td&gt;' +
+            '           &lt;td class="text-right" colspan="2"&gt;' +
+            '               &lt;button class="btn btn-info" ng-click="add()"&gt;add&lt;/button&gt;' +
+            '               &lt;button class="btn btn-primary" ng-click="save()"&gt;save&lt;/button&gt;' +
             '           &lt;/td&gt;' +
             '       &lt;/tr&gt;' +
             '   &lt;/thead&gt;' +
@@ -518,7 +554,7 @@ Message From FirstController: acknowledge
 &lt;/div&gt;
 </code></pre>
 
-<p>(<a href="https://jsfiddle.net/tc1q76sr/">Fiddle</a>)</p>
+<p>(<a href="https://jsfiddle.net/tc1q76sr/1/">Fiddle</a>)</p>
 
 <p>這是個可以編輯的 grid 元件，寫一個可編輯的 grid 一直不是件簡單的事，但是用 angular 實作就是那麼簡單，扣掉 Template 的部分不到 30 行程式碼就完成了。</p>
 
@@ -635,7 +671,7 @@ function 接收5個值，常用的是前面三個。</p>
 
 <p>el 就是 directive 本身最上層的 dom</p>
 
-<p>attrs 就是 el 上所有的 attributes，Angular 幫我們變成一個 object 方便存取，所以也可以透過 attrs 手動作額外的 binding。</p>
+<p>attrs 就是 el 上所有的 attributes，Angular 幫我們變成一個 object 方便存取，所以也可以透過 attrs 手動做額外的 binding。</p>
 
 <p>另外兩個算進階用法，請自行到官網查詢。</p>
 
@@ -644,7 +680,7 @@ function 接收5個值，常用的是前面三個。</p>
 <pre><code>restrict: 'A'
 </code></pre>
 
-<p>設定成只能用attribute 的方式引用</p>
+<p>設定成只能用 attribute 的方式引用，沒特別原因，一般都是用 EA 比較多。</p>
 
 <pre><code>scope: {
     gridData: "=",
@@ -697,9 +733,9 @@ function 接收5個值，常用的是前面三個。</p>
     '&lt;table class="table table-striped"&gt;' +
     '   &lt;thead&gt;' +
     '       &lt;tr&gt;' +
-    '           &lt;td colspan="2"&gt;' +
-    '               &lt;button class="btn btn-info" ng-click="add()"&gt;add&lt;/td&gt;' +
-    '               &lt;button class="btn btn-primary" ng-click="save()"&gt;save&lt;/td&gt;' +
+    '           &lt;td class="text-right" colspan="2"&gt;' +
+    '               &lt;button class="btn btn-info" ng-click="add()"&gt;add&lt;/button&gt;' +
+    '               &lt;button class="btn btn-primary" ng-click="save()"&gt;save&lt;/button&gt;' +
     '           &lt;/td&gt;' +
     '       &lt;/tr&gt;' +
     '   &lt;/thead&gt;' +
@@ -712,7 +748,7 @@ function 接收5個值，常用的是前面三個。</p>
     '&lt;/table&gt;'
 </code></pre>
 
-<p>先看到 tbody 中有一個 ng-repeat，ng-repeat 會依序取出 collection 中的 item，並複製一個 ng-repeat 所在的 dom，然後建立一個新的 scope bind 上去，並把 item 加到 scope 上，在這個 dom 上就可以存取到 item 的值，當然我們把 item 的名稱取名叫 row，存取時就要用 row.id、row.desc。</p>
+<p>先看到 tbody 中有一個 ng-repeat，ng-repeat 會依序取出 collection 中的 item，並複製一個 ng-repeat 所在的 dom，然後建立一個新的 scope bind 上去，並把 item 加到 scope 上，在這個 dom 上就可以存取到 item 的值，當然我們把 item 的名稱取名叫 row，存取時就要用 row.id 和 row.desc。</p>
 
 <pre><code>'&lt;tr ng-repeat="row in gridData"&gt;' +
 '    &lt;td&gt;&lt;input type="text" ng-model="row.id"/&gt;&lt;/td&gt;' +
@@ -722,7 +758,7 @@ function 接收5個值，常用的是前面三個。</p>
 
 <p>template 中另外看到有兩個 button，add 按了之後要新增一筆空資料，save 按了應該要呼叫 binding 到 gridSave 上的外層 scope 屬性，所以我們在 gridController 中要處理這段邏輯。</p>
 
-<pre><code>'&lt;button class="btn btn-info" ng-click="add()"&gt;add&lt;/td&gt;'
+<pre><code>'&lt;button class="btn btn-info" ng-click="add()"&gt;add&lt;/button&gt;'
 
 $scope.add = function(){
     $scope.gridData.push({});
@@ -731,7 +767,7 @@ $scope.add = function(){
 
 <p>基本上 add 事件就對 gridData push 一個 object 就可以了。</p>
 
-<pre><code>'&lt;button class="btn btn-primary" ng-click="save()"&gt;save&lt;/td&gt;'
+<pre><code>'&lt;button class="btn btn-primary" ng-click="save()"&gt;save&lt;/button&gt;'
 
 $scope.save = function(){
     if (!angular.isUndefined($scope.gridSave)){
@@ -740,7 +776,7 @@ $scope.save = function(){
 }
 </code></pre>
 
-<p>save 事件我們想要把當前的資料丟回給 binding 到 gridSave 上的外部 scope function， 但這個屬性是 optional，所以要先判斷是不是 undefined 才可以呼叫，實際上 gridData 是 bi-direction binding，所以呼叫 gridSave 時是可以不用給 $scope.gridData 這個參數的，因為外層 scope 上的 data 也會一起變動，不用特別處理也可以取得當前 grid 的值，這裡只是讓大家知道 可以binding function 進來也可以正常給參數的。</p>
+<p>save 事件我們想要把當前的資料丟回給 binding 到 gridSave 上的外部 scope function， 但這個屬性是 optional，所以要先判斷是不是 undefined 才可以呼叫，實際上 gridData 是 bi-direction binding，所以呼叫 gridSave 時是可以不用給 $scope.gridData 這個參數的，因為外層 scope 上的 data 也會一起變動，不用特別處理也可以取得當前 grid 的值，這裡只是讓大家知道 可以 bind function 進來也可以正常給參數的。</p>
 
 <p>外部的 scope 上定義的 function 收到呼叫後跳出 alert 顯示出資料內容。</p>
 
@@ -749,7 +785,7 @@ $scope.save = function(){
 }
 </code></pre>
 
-<p>注意到我們 inject 了 $window service ，Angular 中若要使用 javascript 的原生 API 都會使用 $window 這個 service，例如 alert、setTimeout、setInterval，這在寫 unit 的時候比較容易做 mock，除此之外 setTimeout 之中若有改變 scope 的屬性值而沒有使用 $window.setTimeout，你會發現畫面上的欄位沒有跟著變動，因為不在 Angular digest cycle 中做的數值修改是不會被偵測到的，包含先前介紹過的 $watch
+<p>注意到我們 inject 了 $window 這個 service ，Angular 中若要使用 javascript 的 window 這個物件上的 API 都會使用 $window 這個 service，例如 alert、setTimeout、setInterval，這在寫 unit 的時候比較容易做 mock，除此之外 setTimeout 之中若有改變 scope 的屬性值而沒有使用 $window.setTimeout，你會發現畫面上的欄位沒有跟著變動，因為不在 Angular digest cycle 中做的數值修改是不會被偵測到的，包含先前介紹過的 $watch
 也會沒有反應，不然就是修改值後要再加上 $scope.$apply() 通知 Angular 有變動發生。</p>
 
 <p>詳細可以參照官網 <a href="https://docs.angularjs.org/guide/scope">此頁</a> 最下面的 Integration with the browser event loop 章節內有說明。</p>
@@ -766,7 +802,7 @@ $scope.save = function(){
 <h3>
 <a id="結語" class="anchor" href="#%E7%B5%90%E8%AA%9E" aria-hidden="true"><span class="octicon octicon-link"></span></a>結語</h3>
 
-<p>Angular 的邏輯和 jQuery 或其他 framework 相差甚多，尤其熟悉 jQuery 的人可能腦筋會常常轉不過來而不知道同樣的功能要怎麼用 Directive 實作，而 Directive 可以說是 Angular 的精華所在，建議大家可以多看看 github 上的各種優秀 directive 才能更加地熟悉精進，例如 Angular 版的 <a href="https://github.com/angular-ui/bootstrap">bootstrap</a> 就有各種元件的實作，大部分的 Directive 都是 100 ~ 200 行而已，相信閱讀也不會太困難。</p>
+<p>Angular 的邏輯和 jQuery 或其他 framework 相差甚多，尤其熟悉 jQuery 的人可能想法會常常轉不過來而不知道同樣的功能要怎麼用 Directive 實作，而 Directive 可以說是 Angular 的精華所在，建議大家可以多看看 github 上的各種優秀 directive 才能更加地熟悉精進，例如 Angular 版的 <a href="https://github.com/angular-ui/bootstrap">bootstrap</a> 就有各種元件的實作，大部分的 Directive 都是 100 ~ 200 行而已，相信閱讀也不會太困難。</p>
 
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/nickhsieh/angular-tutorial">Angular-tutorial</a> is maintained by <a href="https://github.com/nickhsieh">nickhsieh</a>.</span>
