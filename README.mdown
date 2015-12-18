@@ -686,8 +686,8 @@ save 事件我們想要把當前的資料丟回給 binding 到 gridSave 上的�
         $window.alert(JSON.stringify(data));
     }
 
-注意到我們 inject 了 $window 這個 service ，Angular 中若要使用 javascript 的 window 這個物件上的 API 都會使用 $window 這個 service，例如 alert、setTimeout、setInterval，這在寫 unit 的時候比較容易做 mock，除此之外 setTimeout 之中若有改變 scope 的屬性值而沒有使用 $window.setTimeout，你會發現畫面上的欄位沒有跟著變動，因為不在 Angular digest cycle 中做的數值修改是不會被偵測到的，包含先前介紹過的 $watch
-也會沒有反應，不然就是修改值後要再加上 $scope.$apply() 通知 Angular 有變動發生。
+注意到我們 inject 了 $window 這個 service ，Angular 中若要使用 javascript 的 window 這個物件上的 API 都會使用 $window 這個 service，這在寫 unit test 的時候比較容易做 mock，除此之外 setTimeout、setInterval、log、location 等都有對應的 angular service, 以 setTimeout 為例，對應的 service 為 $timeout， 若直接使用 window.setTimeout 且在其中有改變 scope 的屬性值，你會發現畫面上的欄位沒有跟著變動，因為不在 Angular digest cycle 中做的數值修改是不會被偵測到的，包含先前介紹過的 $watch
+也會沒有反應，所以要特別注意需要使用 window 下的原生 API 時，要先確認一下是否有對應的 anguler service 可以使用，不然就是在修改值後要加上 $scope.$apply() 通知 Angular 有變動發生。
 
 詳細可以參照官網 [此頁](https://docs.angularjs.org/guide/scope) 最下面的 Integration with the browser event loop 章節內有說明。
 
